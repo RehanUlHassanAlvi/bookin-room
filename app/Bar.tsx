@@ -1,0 +1,76 @@
+"use client";
+import { signOut, useSession } from "next-auth/react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { companyNameToSlug } from "@/utils/slugUtils";
+
+interface BarProps {
+  currentUser: any | null;
+  routes: any | null;
+  rooms: any | null;
+}
+const Bar = ({ currentUser, routes, rooms }: BarProps) => {
+  const router = useRouter();
+  // Use client-side session for real-time updates
+  const { data: session, status } = useSession();
+  const clientUser = session?.user || currentUser;
+
+  const companyName = routes?.creator?.firmanavn || routes?.company?.firmanavn;
+  const companySlug = companyName ? companyNameToSlug(companyName) : undefined;
+  const adminId = routes?.creator?.userId || routes?.company?.userId || undefined;
+
+  const logout = async () => {
+    await signOut({
+      callbackUrl: "/",
+      redirect: false // Don't redirect automatically
+    });
+    // Force page refresh after logout to clear all state
+    window.location.href = "/";
+  };
+  return (
+    <div className="flex items-center justify-end pr-4 bg-white">
+      {status !== "loading" && clientUser ? (
+        <>
+          <div className="w-auto">
+            <ul className="flex items-center mr-8">
+              <li
+                onClick={logout}
+                className="font-medium tracking-tight cursor-pointer hover:font-semibold hover:text-gray-900"
+              >
+                Logg&nbsp;ut
+              </li>
+            </ul>
+          </div>
+          {clientUser?.role === "admin" ? (
+            <div className="w-auto">
+              <div className="inline-block">
+                <Link
+                  className="inline-block px-5 py-3 font-semibold tracking-tight text-center text-white transition duration-200 rounded-lg bg-primary hover:bg-secondary focus:ring-4 focus:ring-indigo-300"
+                  href={`/admin/${companySlug}/${adminId}`}
+                >
+                  Administrer
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="w-auto">
+              <div className="inline-block">
+                <Link
+                  className="inline-block px-5 py-3 font-semibold tracking-tight text-center text-white transition duration-200 rounded-lg bg-primary hover:bg-secondary focus:ring-4 focus:ring-indigo-300"
+                  href={`/${companySlug}/rooms`}
+                >
+                  Reserver
+                </Link>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        ""
+      )}
+    </div>
+  );
+};
+
+export default Bar;
