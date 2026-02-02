@@ -4,17 +4,21 @@
 
 /**
  * Normalizes Norwegian and accented characters to ASCII equivalents
+ * MUST run before any sanitization
+ *
  * Examples:
- * - æ → ae, ø → o, å → a
- * - é → e, ü → u
+ * - Blåkode → Blakode
+ * - Møte → Mote
+ * - Ærlig → Aerlig
  */
 const normalizeCharacters = (input: string): string => {
   return input
-    // Norwegian specific
-    .replace(/æ/gi, 'ae')
-    .replace(/ø/gi, 'o')
+    // Norwegian characters (ORDER MATTERS)
     .replace(/å/gi, 'a')
-    // General unicode normalization (é → e, ü → u, etc.)
+    .replace(/ø/gi, 'o')
+    .replace(/æ/gi, 'ae')
+
+    // General accented characters (é → e, ü → u, etc.)
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
 };
@@ -22,18 +26,17 @@ const normalizeCharacters = (input: string): string => {
 /**
  * Converts a room name to a normalized URL slug (always lowercase)
  * Example: "Meeting Room B" -> "meeting-room-b"
- * Sanitizes special characters to prevent URL breaking
  */
 export const roomNameToSlug = (roomName: string): string => {
   return normalizeCharacters(roomName)
     .trim()
     // Remove dangerous characters
     .replace(/[<>"'&\/\\]/g, '')
-    // Replace other special chars with hyphens
+    // Replace other special characters with hyphens
     .replace(/[^a-zA-Z0-9\s-]/g, '-')
     // Replace spaces with hyphens
     .replace(/\s+/g, '-')
-    // Replace multiple hyphens with single hyphen
+    // Collapse multiple hyphens
     .replace(/-+/g, '-')
     // Remove leading/trailing hyphens
     .replace(/^-+|-+$/g, '')
@@ -52,7 +55,7 @@ export const slugToRoomName = (slug: string): string => {
 };
 
 /**
- * Normalizes company name to slug format (consistent with existing logic)
+ * Normalizes company name to slug format
  */
 export const companyNameToSlug = (companyName: string): string => {
   return normalizeCharacters(companyName)
@@ -80,7 +83,7 @@ export const slugToCompanyName = (slug: string): string => {
 };
 
 /**
- * Formats room name for display with proper capitalization
+ * Formats room name for display
  */
 export const formatRoomNameForDisplay = (roomName: string): string => {
   if (!roomName) return '';
