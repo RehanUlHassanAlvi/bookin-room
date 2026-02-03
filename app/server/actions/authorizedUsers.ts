@@ -8,22 +8,29 @@ interface IParams {
 export async function authorizedUser(params: IParams) {
   try {
     const { companyName, requestedUserId } = params;
-    
+
+    // Normalize input for slug lookup
     const normalizedSlug = decodeURIComponent(companyName ?? "")
       .trim()
       .replace(/\s+/g, "-")
       .toLowerCase();
 
-    // Primary lookup by stored slug
-    let companyQs = await db.collection('companies').where('firmanavn', '==', normalizedSlug).get();
+    // 1. Primary lookup Strategy: match by dedicated 'slug' field
+    let companyQs = await db.collection('companies').where('slug', '==', normalizedSlug).get();
 
-    // Fallback for legacy title-cased records
+    // 2. Secondary/Legacy lookup strategy: fallbacks for firmanavn
     if (companyQs.empty && normalizedSlug) {
-      const legacyName = normalizedSlug
-        .split("-")
-        .map((word) => (word.toUpperCase() === "AS" ? "AS" : word.charAt(0).toUpperCase() + word.slice(1)))
-        .join(" ");
-      companyQs = await db.collection('companies').where('firmanavn', '==', legacyName).get();
+      // Try exact slug match against firmanavn (for hyphenated names)
+      companyQs = await db.collection('companies').where('firmanavn', '==', normalizedSlug).get();
+
+      if (companyQs.empty) {
+        // Legacy title-case conversion
+        const legacyName = normalizedSlug
+          .split("-")
+          .map((word) => (word.toUpperCase() === "AS" ? "AS" : word.charAt(0).toUpperCase() + word.slice(1)))
+          .join(" ");
+        companyQs = await db.collection('companies').where('firmanavn', '==', legacyName).get();
+      }
     }
 
     let company = null as any;

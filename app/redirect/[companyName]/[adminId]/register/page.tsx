@@ -42,7 +42,7 @@ const RegisterPage = () => {
       .email({ message: "Ugyldig epostadresse" }),
     password: z
       .string()
-      .min(3, { message: "Passord må være minst 8 karakterer langt" }),
+      .min(8, { message: "Passord må være minst 8 karakterer langt" }),
   });
 
   const {
@@ -104,11 +104,8 @@ const RegisterPage = () => {
 
       if (signInResult?.ok) {
         toast.success("Registrering vellykket!");
-        // Use the correct callback URL with userId
-        const correctCallbackLink = `https://hold-av-zeta.vercel.app/redirect/${companyName?.replace(
-          /\s+/g,
-          "-"
-        )}/${adminId}/${newUserId}/callback?token=${token}`;
+        // Use relative path for robustness across environments
+        const correctCallbackLink = `/redirect/${companyName}/${adminId}/${newUserId}/callback?token=${token}`;
         router.push(correctCallbackLink);
       } else {
         toast.error("Registrering vellykket, men innlogging feilet");

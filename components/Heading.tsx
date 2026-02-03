@@ -9,11 +9,10 @@ const Heading = ({ title, subTitle, backgroundColor, flex }: HeadingProps) => {
     <div className="w-full py-5 mx-auto ralative ">
       {flex ? (
         <div className="flex items-center">
-          <h1 className="font-bold text-[25px] capitalize">{title}</h1>
+          <h1 className="font-bold text-[25px]">{title}</h1>
           <div
-            className={` ${
-              backgroundColor ? "bg-light/10" : undefined
-            } max-w-full  md:max-w-[500px] xl:max-w-[600px] 2xl:max-w-[700px] pl-2 `}
+            className={` ${backgroundColor ? "bg-light/10" : undefined
+              } max-w-full  md:max-w-[500px] xl:max-w-[600px] 2xl:max-w-[700px] pl-2 `}
           >
             <h5 className=" text-[14px] ml-2">{subTitle}</h5>
           </div>

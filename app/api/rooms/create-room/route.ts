@@ -3,20 +3,20 @@ import { db } from "@/lib/firebaseAdmin";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/pages/api/auth/[...nextauth]";
-import { slugToCompanyName, formatRoomNameForStorage } from "@/utils/slugUtils";
+import { slugToCompanyName, formatRoomNameForStorage, roomNameToSlug } from "@/utils/slugUtils";
 
-// Auto-sanitize room name function
+// Auto-sanitize room name function - preserves Norwegian characters
 const autoSanitizeRoomName = (roomName: string): string => {
   if (!roomName) return "";
-  
+
   return roomName
     .trim()
-    .replace(/[<>]/g, '') // Remove angle brackets
-    .replace(/["']/g, '') // Remove quotes
-    .replace(/[&]/g, 'and') // Replace & with 'and'
-    .replace(/[\/\\]/g, ' ') // Replace slashes with spaces
-    .replace(/[^a-zA-Z0-9\s-]/g, ' ') // Replace other special chars
-    .replace(/\s+/g, ' ') // Multiple spaces to single
+    .replace(/[<>]/g, '')
+    .replace(/["']/g, '')
+    .replace(/[&]/g, 'and')
+    .replace(/[\/\\]/g, ' ')
+    .replace(/[^a-zA-Z0-9æøåÆØÅ\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 };
 
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   try {
     // Get session directly from the request
     const session: any = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
     }
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const { name, companyName } = body;
-    
+
     if (!companyName) {
       return NextResponse.json({ error: "companyName is required" }, { status: 400 });
     }
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     // Auto-sanitize room name instead of blocking
     const originalName = name;
     const sanitizedRoomName = autoSanitizeRoomName(name);
-    
+
     // Show what was changed if sanitization occurred
     if (originalName !== sanitizedRoomName) {
       console.log(`Room name auto-sanitized: "${originalName}" -> "${sanitizedRoomName}"`);
@@ -97,7 +97,8 @@ export async function POST(request: Request) {
       id: roomRef.id,
       userId: currentUser?.id,
       companyId: company.id,
-      name: formattedRoomName,
+      name: formattedRoomName, // Raw name with Norwegian characters
+      slug: roomNameToSlug(formattedRoomName), // Standardized URL slug
       createdAt: now,
       companyName: company.firmanavn, // Use actual company name from database
     } as any;

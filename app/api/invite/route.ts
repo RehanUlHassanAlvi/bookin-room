@@ -26,20 +26,27 @@ export async function POST(request: Request) {
       return new NextResponse("User already exists, no need to invite.", { status: 400 });
     }
 
+    // check if company exists - prioritize dedicated slug field
     const normalizedSlug = decodeURIComponent(companyName ?? "")
       .trim()
       .replace(/\s+/g, "-")
       .toLowerCase();
 
-    let companyQs = await db.collection('companies').where('firmanavn', '==', normalizedSlug).limit(1).get();
+    // 1. Primary lookup Strategy: match by dedicated 'slug' field
+    let companyQs = await db.collection('companies').where('slug', '==', normalizedSlug).limit(1).get();
 
-    // Fallback for legacy title-cased records
+    // 2. Secondary Strategy: fallback for firmanavn (legacy support)
     if (companyQs.empty && normalizedSlug) {
-      const legacyName = normalizedSlug
-        .split("-")
-        .map((word: string) => (word.toUpperCase() === "AS" ? "AS" : word.charAt(0).toUpperCase() + word.slice(1)))
-        .join(" ");
-      companyQs = await db.collection('companies').where('firmanavn', '==', legacyName).limit(1).get();
+      // Try exact match against firmanavn
+      companyQs = await db.collection('companies').where('firmanavn', '==', normalizedSlug).limit(1).get();
+
+      if (companyQs.empty) {
+        const legacyName = normalizedSlug
+          .split("-")
+          .map((word: string) => (word.toUpperCase() === "AS" ? "AS" : word.charAt(0).toUpperCase() + word.slice(1)))
+          .join(" ");
+        companyQs = await db.collection('companies').where('firmanavn', '==', legacyName).limit(1).get();
+      }
     }
 
     const companyId = companyQs.empty ? null : ({ id: companyQs.docs[0].id, ...companyQs.docs[0].data() } as any);
@@ -61,7 +68,7 @@ export async function POST(request: Request) {
 
     // Generate unique token for new user invitation
     const uniqueToken = crypto.randomBytes(32).toString("hex");
-    
+
     // Create invitation record for new user
     const invitationRef = db.collection('invitations').doc(uniqueToken);
     const invitation = {
@@ -73,15 +80,16 @@ export async function POST(request: Request) {
       adminName,
     } as any;
     await invitationRef.set(invitation);
-    const baseUrl = "https://hold-av-zeta.vercel.app/";
-    
+    const baseUrl = process.env.NEXT_PUBLIC_URL || "http://localhost:3000";
+
     // Validate required values for URL generation
     if (!companyName || !adminId) {
       return new NextResponse("Missing required data for invitation link", { status: 400 });
     }
-    
-    // Create invitation link for new user registration
-    const companySlug = companyName.replace(/\s+/g, "-").toLowerCase();
+
+    // Create invitation link for new user registration using standardized slug utility
+    const { companyNameToSlug } = await import("@/utils/slugUtils");
+    const companySlug = companyId?.slug || companyNameToSlug(companyName);
     const invitationLink = `${baseUrl}/redirect/${companySlug}/${adminId}/register?token=${uniqueToken}&invite=true&email=${encodeURIComponent(email)}`;
 
     const subject = `${adminName} Inviterte deg til ${companyName}`;

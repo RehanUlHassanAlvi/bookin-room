@@ -92,7 +92,7 @@ export const Constants = ({ currentUser }: SidebarProps) => {
 
   return;
 };
-const Sidebar = ({ currentUser }: SidebarProps) => {
+const Sidebar = ({ currentUser, getByUserId }: SidebarProps) => {
   //console.log("🚀 ~ Sidebar ~ currentUser:", currentUser);
   const routes = useRoutes(currentUser);
   const companyNameParams = useParams<{ companyName: string; item: string }>();
@@ -106,6 +106,31 @@ const Sidebar = ({ currentUser }: SidebarProps) => {
   {
   }
   const [navOpen, setNavOpen] = useState(false);
+  const [fetchedCompany, setFetchedCompany] = useState<any>(null);
+
+  // Sync with prop or fetch if missing
+  useEffect(() => {
+    if (!companyName) return;
+
+    // Check if getByUserId is correct for this slug
+    if (getByUserId?.slug === companyName ||
+      getByUserId?.firmanavn?.trim().replace(/\s+/g, '-').toLowerCase() === companyName) {
+      setFetchedCompany(null); // Reset since prop is good
+      return;
+    }
+
+    const fetchCompany = async () => {
+      try {
+        const res = await axios.get(`/api/company/${companyName}`);
+        if (res.data) setFetchedCompany(res.data);
+      } catch (e) {
+        console.warn("Sidebar failed to fetch company context", e);
+      }
+    };
+    fetchCompany();
+  }, [companyName, getByUserId]);
+
+  const displayCompany = fetchedCompany || getByUserId;
 
   const handleNav = () => {
     setNavOpen(true);
@@ -137,14 +162,20 @@ const Sidebar = ({ currentUser }: SidebarProps) => {
         <div className="flex-1 px-3 py-2 overflow-y-auto">
           <div className="flex justify-between w-full">
             <Link
-              href={`/admin/${companyNameToSlug(companyName || "")}/${currentUser?.id}/`}
+              href={`/admin/${companyName}/${currentUser?.id}/`}
               className="flex items-center pl-3 mb-10"
             >
               <div>
                 <div className="relative w-24 h-10">
                   <Image fill alt="HOLD AV - Logo" src={logo} className="" />
                 </div>
-                <h6 className="text-[16px] capitalize">{companyName}</h6>
+                {/* 
+                  Note: companyName comes from useParams (URL slug).
+                  We use the raw firmanavn for display from the company data if available.
+                */}
+                <h6 className="text-[16px]">
+                  {displayCompany?.firmanavn || companyName?.replace(/-/g, ' ')}
+                </h6>
               </div>
             </Link>
             <div
@@ -156,7 +187,7 @@ const Sidebar = ({ currentUser }: SidebarProps) => {
           </div>
           <div className="space-y-1">
             {routes.map((route) => {
-              const fullHref = `/admin/${companyNameToSlug(companyName || "")}/${currentUser?.id}${route.href}`;
+              const fullHref = `/admin/${companyName}/${currentUser?.id}${route.href}`;
               return (
                 <Link
                   key={route.href}

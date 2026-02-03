@@ -26,14 +26,14 @@ const SlugClinet = ({ currentUser, userById, realCompanyName }: SlugClientProps)
       .min(3, { message: "Navn må være minst 3 tegn" })
       .max(50, { message: "Navn kan ikke være lengre enn 50 tegn" })
       .transform((name) => {
-        // Auto-sanitize: convert special characters instead of blocking
+        // Auto-sanitize: allow Norwegian characters (ÆØÅæøå), strip only dangerous symbols
         return name
           .trim()
           .replace(/[<>]/g, '') // Remove angle brackets
           .replace(/["']/g, '') // Remove quotes
           .replace(/[&]/g, 'and') // Replace & with 'and'
           .replace(/[\/\\]/g, ' ') // Replace slashes with spaces
-          .replace(/[^a-zA-Z0-9\s-]/g, ' ') // Replace other special chars
+          .replace(/[^a-zA-Z0-9æøåÆØÅ\s-]/g, ' ') // Preserve Norwegian characters, replace other special chars
           .replace(/\s+/g, ' ') // Multiple spaces to single
           .trim();
       }),
@@ -120,9 +120,8 @@ const SlugClinet = ({ currentUser, userById, realCompanyName }: SlugClientProps)
 
         toast.success("Møterom Opprettet");
 
-        // Navigate to rooms page using proper slug utility
-        const { companyNameToSlug } = await import("@/utils/slugUtils");
-        window.location.href = `/admin/${companyNameToSlug(companyName || "")}/${currentUser?.id}/rooms`;
+        // Navigate to rooms page using current slug from params
+        window.location.href = `/admin/${companyName}/${currentUser?.id}/rooms`;
       } else {
         toast.error("Ugyldig navn");
       }

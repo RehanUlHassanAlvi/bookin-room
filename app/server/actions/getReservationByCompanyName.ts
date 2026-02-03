@@ -27,11 +27,11 @@ export default async function getReservationByCompanyName(params: IParams) {
     // Resolve companyId first to avoid companyName mismatches
     const decoded = (() => { try { return decodeURIComponent(companyName); } catch { return companyName; } })();
     const withSpaces = companyName.includes('%20') ? companyName.replace(/%20/g, ' ') : decoded;
-    
+
     // Companies are stored with firmanavn in lowercase with hyphens (see create-company route)
     // So we need to try the normalized lowercase version as well
     const normalizedSlug = decoded.trim().replace(/\s+/g, "-").toLowerCase();
-    
+
     const nameCandidates = [
       convertedCompanyName,  // "Test Company AS" (title case with spaces)
       companyName,            // Original from URL (e.g., "Tekbex" or "test-company-as")
@@ -43,12 +43,20 @@ export default async function getReservationByCompanyName(params: IParams) {
       .filter((v): v is string => !!v)
       .filter((v, i, a) => a.indexOf(v) === i);
 
+    // 1. Primary lookup Strategy: match by dedicated 'slug' field
+    const slugQs = await db.collection('companies').where('slug', '==', normalizedSlug).limit(1).get();
+
     let companyId: string | null = null;
-    for (const cand of nameCandidates) {
-      const cqs = await db.collection('companies').where('firmanavn', '==', cand).limit(1).get();
-      if (!cqs.empty) {
-        companyId = cqs.docs[0].id;
-        break;
+    if (!slugQs.empty) {
+      companyId = slugQs.docs[0].id;
+    } else {
+      // 2. Secondary Strategy: loop through candidates (legacy support)
+      for (const cand of nameCandidates) {
+        const cqs = await db.collection('companies').where('firmanavn', '==', cand).limit(1).get();
+        if (!cqs.empty) {
+          companyId = cqs.docs[0].id;
+          break;
+        }
       }
     }
 
@@ -89,7 +97,7 @@ export default async function getReservationByCompanyName(params: IParams) {
       const start = reservation.start_date?.toDate ? reservation.start_date.toDate() : new Date(reservation.start_date);
       const end = reservation.end_date?.toDate ? reservation.end_date.toDate() : new Date(reservation.end_date);
       const created = reservation.createdAt?.toDate ? reservation.createdAt.toDate() : (reservation.createdAt ? new Date(reservation.createdAt) : undefined);
-      
+
       return {
         ...reservation,
         createdAt: created?.toISOString(),

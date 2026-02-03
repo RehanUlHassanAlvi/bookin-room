@@ -40,15 +40,21 @@ export async function POST(request: Request) {
       .replace(/\s+/g, "-")
       .toLowerCase();
 
-    let companyQs = await db.collection('companies').where('firmanavn', '==', normalizedSlug).limit(1).get();
+    // 1. Primary lookup Strategy: match by dedicated 'slug' field
+    let companyQs = await db.collection('companies').where('slug', '==', normalizedSlug).limit(1).get();
 
-    // Fallback for legacy title-cased records
+    // 2. Secondary Strategy: fallback for firmanavn (legacy support)
     if (companyQs.empty && normalizedSlug) {
-      const legacyName = normalizedSlug
-        .split("-")
-        .map((word: string) => (word.toUpperCase() === "AS" ? "AS" : word.charAt(0).toUpperCase() + word.slice(1)))
-        .join(" ");
-      companyQs = await db.collection('companies').where('firmanavn', '==', legacyName).limit(1).get();
+      // Try exact match against firmanavn
+      companyQs = await db.collection('companies').where('firmanavn', '==', normalizedSlug).limit(1).get();
+
+      if (companyQs.empty) {
+        const legacyName = normalizedSlug
+          .split("-")
+          .map((word: string) => (word.toUpperCase() === "AS" ? "AS" : word.charAt(0).toUpperCase() + word.slice(1)))
+          .join(" ");
+        companyQs = await db.collection('companies').where('firmanavn', '==', legacyName).limit(1).get();
+      }
     }
 
     const companyId = companyQs.empty ? null : ({ id: companyQs.docs[0].id, ...companyQs.docs[0].data() } as any);
@@ -60,11 +66,11 @@ export async function POST(request: Request) {
     if (token) {
       const invitationSnap = await db.collection('invitations').doc(token).get();
       const invitation = invitationSnap.exists ? ({ id: invitationSnap.id, ...invitationSnap.data() } as any) : null;
-      
+
       if (!invitation) {
         return new NextResponse('Invalid invitation token', { status: 400 });
       }
-      
+
       if (invitation.userEmail !== email) {
         return new NextResponse('Email does not match invitation', { status: 400 });
       }

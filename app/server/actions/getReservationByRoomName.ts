@@ -21,42 +21,32 @@ export default async function getReservationsByRoomName(params: IParams) {
     }
 
     // 1. Find the actual room first to get its canonical name and ID
+    // Logic: Look for company by slug first, then fallback to name variations
     const roomsQs = await db.collection('rooms')
+      .where('slug', '==', roomName)
       .where('companyName', '==', companyName)
       .get();
 
-    if (roomsQs.empty) {
-      return [];
+    let matchedRoom = roomsQs.empty ? null : { id: roomsQs.docs[0].id, ...roomsQs.docs[0].data() } as any;
+
+    if (!matchedRoom) {
+      // Fallback: search all rooms for this company and match by slugified name
+      const allRoomsQs = await db.collection('rooms')
+        .where('companyName', '==', companyName)
+        .get();
+
+      const allRooms = allRoomsQs.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      matchedRoom = allRooms.find(room => {
+        const dbRoomName = room.name || "";
+        return roomNameToSlug(dbRoomName) === roomName.toLowerCase() ||
+          dbRoomName.toLowerCase() === roomName.toLowerCase();
+      });
     }
 
-    const rooms = roomsQs.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-    const matchedRoom = rooms.find(room => {
-      const dbRoomName = room.name || "";
-      return roomNameToSlug(dbRoomName) === roomName.toLowerCase() ||
-        dbRoomName.toLowerCase() === roomName.toLowerCase();
-    });
-
     // 2. Determine search criteria
-    // We'll search by the matched room's name and ID if found,
-    // otherwise fallback to the variations of the slug
-    const searchNames = matchedRoom ? [matchedRoom.name] : [
-      slugToRoomName(roomName),
-      roomName,
-      roomName.toLowerCase()
-    ];
+    // Priority: roomId is the most robust way to find reservations
+    const queryPromises: any[] = [];
 
-    console.log(`🔍 getReservationsByRoomName - Using search names:`, searchNames);
-
-    // 3. Query reservations
-    const queryPromises = searchNames.map((name) =>
-      db.collection('reservations')
-        .where('roomName', '==', name)
-        .where('companyName', '==', companyName)
-        .limit(100)
-        .get()
-    );
-
-    // Also query by roomId if we found a match
     if (matchedRoom) {
       queryPromises.push(
         db.collection('reservations')
@@ -66,11 +56,28 @@ export default async function getReservationsByRoomName(params: IParams) {
       );
     }
 
+    // Fallback: names (for legacy records missing roomId)
+    const searchNames = matchedRoom ? [matchedRoom.name] : [
+      slugToRoomName(roomName),
+      roomName,
+      roomName.toLowerCase()
+    ];
+
+    searchNames.forEach((name) => {
+      queryPromises.push(
+        db.collection('reservations')
+          .where('roomName', '==', name)
+          .where('companyName', '==', companyName)
+          .limit(100)
+          .get()
+      );
+    });
+
     const queryResults = await Promise.all(queryPromises);
     const map = new Map<string, any>();
 
     for (const qs of queryResults) {
-      qs.docs.forEach((d) => map.set(d.id, { id: d.id, ...d.data() }));
+      qs.docs.forEach((d: any) => map.set(d.id, { id: d.id, ...d.data() }));
     }
 
     let reservations = Array.from(map.values());

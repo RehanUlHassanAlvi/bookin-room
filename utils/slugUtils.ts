@@ -28,14 +28,14 @@ const normalizeCharacters = (input: string): string => {
  * Example: "Meeting Room B" -> "meeting-room-b"
  */
 export const roomNameToSlug = (roomName: string): string => {
+  if (!roomName) return '';
+
   return normalizeCharacters(roomName)
     .trim()
-    // Remove dangerous characters
-    .replace(/[<>"'&\/\\]/g, '')
-    // Replace other special characters with hyphens
+    // Replace non-alphanumeric characters (except spaces and hyphens) with hyphens
     .replace(/[^a-zA-Z0-9\s-]/g, '-')
-    // Replace spaces with hyphens
-    .replace(/\s+/g, '-')
+    // Replace spaces and underscores with hyphens
+    .replace(/[\s_]+/g, '-')
     // Collapse multiple hyphens
     .replace(/-+/g, '-')
     // Remove leading/trailing hyphens
@@ -58,11 +58,12 @@ export const slugToRoomName = (slug: string): string => {
  * Normalizes company name to slug format
  */
 export const companyNameToSlug = (companyName: string): string => {
+  if (!companyName) return '';
+
   return normalizeCharacters(companyName)
     .trim()
-    .replace(/[<>"'&\/\\]/g, '')
     .replace(/[^a-zA-Z0-9\s-]/g, '-')
-    .replace(/\s+/g, '-')
+    .replace(/[\s_]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-+|-+$/g, '')
     .toLowerCase();
@@ -93,7 +94,6 @@ export const formatRoomNameForDisplay = (roomName: string): string => {
   }
 
   return roomName
-    .toLowerCase()
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
@@ -105,10 +105,10 @@ export const formatRoomNameForDisplay = (roomName: string): string => {
 export const sanitizeRoomName = (roomName: string): string => {
   if (!roomName) return '';
 
-  return normalizeCharacters(roomName)
+  return roomName
     .trim()
     .replace(/[<>"'&\/\\]/g, '')
-    .replace(/[^a-zA-Z0-9\s-]/g, ' ')
+    .replace(/[^a-zA-Z0-9æøåÆØÅ\s-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 };
@@ -122,7 +122,6 @@ export const formatRoomNameForStorage = (roomName: string): string => {
   const sanitized = sanitizeRoomName(roomName);
 
   return sanitized
-    .toLowerCase()
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');

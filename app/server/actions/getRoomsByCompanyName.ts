@@ -13,45 +13,62 @@ interface IParams {
 
 const getCachedRooms = unstable_cache(
   async (companyName: string) => {
-    // Convert slug format to proper company name for database query
-    const properCompanyName = slugToCompanyName(companyName);
+    // 1. Resolve company by its slug first
+    const normalizedSlug = companyName.trim().replace(/\s+/g, "-").toLowerCase();
+    const companyQs = await db.collection('companies').where('slug', '==', normalizedSlug).limit(1).get();
 
-    // Try multiple variations to find the company
-    const variations = [
-      properCompanyName,
-      companyName,
-      decodeURIComponent(companyName),
-      companyName.replace(/-/g, ' '),
-      companyName.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-    ].filter((v, i, arr) => v && arr.indexOf(v) === i);
+    let canonicalCompanyName = "";
+    let companyId = "";
 
-    let rooms: any[] = [];
-
-    for (const variation of variations) {
-      const qs = await db
-        .collection('rooms')
-        .where('companyName', '==', variation)
-        // orderBy removed to avoid composite index requirements
-        .get();
-
-      if (!qs.empty) {
-        rooms = qs.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as any[];
-
-        // In-memory sort by createdAt descending
-        rooms.sort((a, b) => {
-          const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
-          const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
-          return timeB - timeA;
-        });
-        break;
+    if (!companyQs.empty) {
+      const companyData = companyQs.docs[0].data();
+      canonicalCompanyName = companyData.firmanavn;
+      companyId = companyQs.docs[0].id;
+    } else {
+      // Fallback: try to find by variations of the name
+      const properCompanyName = slugToCompanyName(companyName);
+      const variations = [properCompanyName, companyName, decodeURIComponent(companyName)];
+      for (const v of variations) {
+        if (!v) continue;
+        const cqs = await db.collection('companies').where('firmanavn', '==', v).limit(1).get();
+        if (!cqs.empty) {
+          canonicalCompanyName = cqs.docs[0].data().firmanavn;
+          companyId = cqs.docs[0].id;
+          break;
+        }
       }
     }
+
+    if (!canonicalCompanyName && !companyId) {
+      console.log(`[getCachedRooms] Company not found for slug/name: ${companyName}`);
+      return [];
+    }
+
+    // 2. Fetch rooms for this company
+    // Try by companyId first (preferred), fallback to canonical companyName
+    let roomsQs;
+    if (companyId) {
+      roomsQs = await db.collection('rooms').where('companyId', '==', companyId).get();
+    }
+
+    if (!roomsQs || roomsQs.empty) {
+      roomsQs = await db.collection('rooms').where('companyName', '==', canonicalCompanyName).get();
+    }
+
+    const rooms = (roomsQs?.docs || []).map((doc) => ({ id: doc.id, ...doc.data() })) as any[];
+
+    // In-memory sort by createdAt descending
+    rooms.sort((a, b) => {
+      const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+      const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+      return timeB - timeA;
+    });
 
     return rooms;
   },
   ['rooms-by-company'],
   {
-    revalidate: 1, // Cache for only 1 second to ensure fresh data
+    revalidate: 1, // Cache for only 1 second for near-real-time updates
     tags: ['rooms']
   }
 );

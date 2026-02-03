@@ -94,14 +94,27 @@ export async function POST(request: Request) {
     const convertedCompanyName = companyName ? slugToCompanyName(companyName) : "";
     const decodedCompanyName = (() => { try { return decodeURIComponent(companyName || ""); } catch { return companyName || ""; } })();
 
+    const normalizedSlug = decodeURIComponent(companyName ?? "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .toLowerCase();
+
     let company: any = null;
     const searchTerms = [convertedCompanyName, decodedCompanyName, companyName].filter((v, i, a) => !!v && a.indexOf(v) === i);
 
-    for (const term of searchTerms) {
-      const q = await db.collection('companies').where('firmanavn', '==', term).limit(1).get();
-      if (!q.empty) {
-        company = { id: q.docs[0].id, ...q.docs[0].data() };
-        break;
+    // 1. Primary lookup Strategy: match by dedicated 'slug' field (robust and consistent)
+    const slugQs = await db.collection('companies').where('slug', '==', normalizedSlug).limit(1).get();
+
+    if (!slugQs.empty) {
+      company = { id: slugQs.docs[0].id, ...slugQs.docs[0].data() };
+    } else {
+      // 2. Secondary Strategy: fallback for firmanavn (legacy support)
+      for (const term of searchTerms) {
+        const q = await db.collection('companies').where('firmanavn', '==', term).limit(1).get();
+        if (!q.empty) {
+          company = { id: q.docs[0].id, ...q.docs[0].data() };
+          break;
+        }
       }
     }
 

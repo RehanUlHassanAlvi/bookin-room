@@ -20,24 +20,31 @@ export async function getCreatorByCompanyName(params: IParams) {
 
     console.log(`[getCreatorByCompanyName] Looking for company: "${companyName}"`);
 
-    // 1. Fetch companies to find a match
-    // We try to find a company where the slug of its firmanavn matches our input slug
-    const companiesQs = await db.collection('companies').limit(100).get(); // Limit for safety
+    // 1. Primary lookup Strategy: match by dedicated 'slug' field (robust and consistent)
+    const slugQs = await db.collection('companies').where('slug', '==', companyName.toLowerCase()).limit(1).get();
+
+    if (!slugQs.empty) {
+      console.log(`[getCreatorByCompanyName] Found match by slug: ${slugQs.docs[0].data().firmanavn}`);
+      return { id: slugQs.docs[0].id, ...slugQs.docs[0].data() } as any;
+    }
+
+    // 2. Secondary Strategy: fetch and match (legacy support)
+    const companiesQs = await db.collection('companies').limit(200).get();
 
     if (companiesQs.empty) {
       return null;
     }
 
     const companies = companiesQs.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-
-    // Use the same slugging logic to find the match
     const { companyNameToSlug } = await import("@/utils/slugUtils");
 
     const matchedCompany = companies.find(company => {
       const dbName = company.firmanavn || "";
-      const dbSlug = companyNameToSlug(dbName);
+      const dbStoredSlug = company.slug || "";
+      const dbGeneratedSlug = companyNameToSlug(dbName);
 
-      return dbSlug === companyName.toLowerCase() ||
+      return dbStoredSlug === companyName.toLowerCase() ||
+        dbGeneratedSlug === companyName.toLowerCase() ||
         dbName.toLowerCase() === companyName.toLowerCase();
     });
 

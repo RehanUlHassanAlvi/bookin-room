@@ -545,10 +545,11 @@ const Scheduler = ({
 
     // 🔥 FIX: Repopulate if UI is empty but state exists (prevents state loss on re-render)
     const currentEvents = scheduler.getEvents() || [];
-    if (currentEvents.length === 0 && eventRef.current?.length > 0) {
+    const eventList = eventRef.current;
+    if (currentEvents.length === 0 && eventList && eventList.length > 0) {
       console.log('🔄 UI was empty but state exists - re-parsing events');
       try {
-        scheduler.parse(eventRef.current, "json");
+        scheduler.parse(eventList, "json");
         scheduler.render();
       } catch (_) { }
     }
@@ -576,9 +577,13 @@ const Scheduler = ({
       const startDate = ev.start_date;
       const endDate = ev.end_date;
 
+      const currentUser = currentUserRef.current;
+      const userFullname = currentUser ? `${currentUser.firstname} ${currentUser.lastname}` : "";
+      const userEmail = currentUser ? currentUser.email : "";
+
       const eventText = (ev.text && String(ev.text).trim().length > 0 && ev.text !== "Reservasjon")
         ? ev.text
-        : (`${currentUserRef.current?.firstname} ${currentUserRef.current?.lastname}` || currentUserRef.current?.email || "");
+        : (userFullname || userEmail || "");
 
       onDateSelect(startDate, endDate, eventText);
 
@@ -704,9 +709,15 @@ const Scheduler = ({
       } catch (_) { }
 
       const ev = scheduler.getEvent(id);
-      if (ev && ev.userId && currentUserRef.current?.id !== ev.userId) return false;
+      const currentUser = currentUserRef.current;
+      const currentUserId = currentUser ? currentUser.id : null;
 
-      const fallback = `${currentUserRef.current?.firstname} ${currentUserRef.current?.lastname}` || currentUserRef.current?.email || "";
+      if (ev && ev.userId && currentUserId !== ev.userId) return false;
+
+      const fallback = (currentUser && (currentUser.firstname || currentUser.lastname))
+        ? `${currentUser.firstname} ${currentUser.lastname}`
+        : (currentUser ? currentUser.email : "") || "";
+
       if (!ev.text || ev.text === scheduler.locale.labels.new_event || ev.text === "Reservasjon") {
         ev.text = fallback;
         try { scheduler.updateEvent(id); } catch (_) { }
@@ -717,7 +728,9 @@ const Scheduler = ({
     GLOBAL_DISPATCHER.onLightboxButton = (button_id: any, node: any, e: any, ev: any) => {
       if (!isEventValid()) return false;
       if (button_id === "calender_button") {
-        const link = `https://www.google.com/calendar/event?action=TEMPLATE&text=${encodeURIComponent(ev?.text || "Reservasjon")}&dates=${encodeURIComponent(ev?.start_date)}/${encodeURIComponent(ev?.end_date)}&details=${encodeURIComponent(currentUserRef.current?.email || "")}`;
+        const currentUser = currentUserRef.current;
+        const userEmail = currentUser ? currentUser.email : "";
+        const link = `https://www.google.com/calendar/event?action=TEMPLATE&text=${encodeURIComponent(ev?.text || "Reservasjon")}&dates=${encodeURIComponent(ev?.start_date)}/${encodeURIComponent(ev?.end_date)}&details=${encodeURIComponent(userEmail || "")}`;
         window.open(link, "_blank");
       }
       if (button_id === "dhx_save_btn") {
@@ -744,7 +757,10 @@ const Scheduler = ({
       if (!isEventValid()) return;
       if (scheduler.getState().new_event) return;
 
-      if (currentUserRef.current?.id === ev.userId && onDataUpdated) {
+      const userId = ev ? ev.userId : null;
+      const currentUserId = currentUserRef.current ? currentUserRef.current.id : null;
+
+      if (currentUserId && userId && currentUserId === userId && onDataUpdated) {
         onDataUpdated("delete", ev, id);
         try {
           await onCancelReservation(id);
@@ -753,17 +769,21 @@ const Scheduler = ({
         } catch (error) {
           setButtonStates(prev => ({ ...prev, cancel: 'error' }));
           toast.error('Kunne ikke slette reservasjon');
-          try { scheduler.addEvent({ ...ev, id }); } catch (_) { }
+          try {
+            if (ev) scheduler.addEvent({ ...ev, id });
+          } catch (_) { }
         } finally {
           setTimeout(() => setButtonStates(prev => ({ ...prev, cancel: 'idle' })), 2000);
           isCancellingRef.current = false;
           if (setIsCancelling) setIsCancelling(false);
         }
       } else {
-        // Not owner or no update callback
+        // Not owner, no userId, or no update callback
         try {
-          ev.readonly = true;
-          scheduler.addEvent({ ...ev, id });
+          if (ev) {
+            ev.readonly = true;
+            scheduler.addEvent({ ...ev, id });
+          }
         } catch (_) { }
       }
     };
@@ -771,7 +791,9 @@ const Scheduler = ({
     GLOBAL_DISPATCHER.onBeforeDrag = (id: any) => {
       if (!isEventValid()) return false;
       const ev = scheduler.getEvent(id);
-      return !(ev && ev.userId && currentUserRef.current?.id !== ev.userId);
+      const currentUser = currentUserRef.current;
+      const currentUserId = currentUser ? currentUser.id : null;
+      return !(ev && ev.userId && currentUserId !== ev.userId);
     };
 
     GLOBAL_DISPATCHER.event_class = (start: any, end: any, ev: any) => ev.css || "employee_event";
@@ -807,10 +829,13 @@ const Scheduler = ({
     // 3. Configure instance-specific/dynamic settings
     scheduler.config.hour_date = timeFormatState ? "%H:%i" : "%g:%i %A";
 
+    const currentUser = currentUserRef.current;
+    const userDisplay = currentUser ? (`${currentUser.firstname} ${currentUser.lastname}` || currentUser.email) : "";
+
     scheduler.config.lightbox.sections = [
       {
         name: "Opprettet av", height: 40, type: "textarea", focus: false,
-        default_value: `${currentUserRef.current?.firstname} ${currentUserRef.current?.lastname}` || currentUserRef.current?.email || "",
+        default_value: userDisplay || "",
         map_to: "text", disabled: true
       },
       { name: "Tid", height: 100, type: "time", map_to: "auto", time_format: ["%H:%i", "%d", "%m", "%Y"] }
@@ -878,7 +903,7 @@ const Scheduler = ({
 
 export default Scheduler;
 
-// if (currentUser?.id === ev.userId) {
+// if (currentUser && currentUser.id === ev.userId) {
 // } else {
 //   ev.readonly = true;
 //   scheduler.updateEvent(id);

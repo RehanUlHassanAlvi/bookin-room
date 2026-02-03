@@ -156,7 +156,9 @@ const RoomsClient = ({
         {roomsOfTheCurrentCompany && roomsOfTheCurrentCompany.length > 0 ? (
           <div>
             {roomsOfTheCurrentCompany.map((room: any) => {
-              const targetPath = `/${companyNameToSlug(companyName ?? "")}/${roomNameToSlug(room?.name ?? "")}`;
+              const companySlug = company?.slug || companyNameToSlug(companyName ?? "");
+              const roomSlug = room.slug || roomNameToSlug(room?.name ?? "");
+              const targetPath = `/${companySlug}/${roomSlug}`;
               return (
                 <div
                   key={room?.id}

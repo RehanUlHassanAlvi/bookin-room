@@ -68,7 +68,7 @@ const Rooms = async ({ params }: { params: Promise<IParams> }) => {
         <Heading
           title={formatRoomNameForDisplay(roomByName?.name) || "Møterom eksisterer ikke"}
           flex
-          subTitle={companyName || ""}
+          subTitle={realCompanyName || ""}
         />
       </div>
 

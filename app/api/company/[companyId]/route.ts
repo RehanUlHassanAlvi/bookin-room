@@ -15,16 +15,22 @@ export async function GET(
       .replace(/\s+/g, "-")
       .toLowerCase();
 
-    // Primary lookup: match the stored slug (firmanavn is saved as slug)
-    let qs = await db.collection('companies').where('firmanavn', '==', normalizedSlug).get();
+    // 1. Primary lookup Strategy: match by dedicated 'slug' field (robust and consistent)
+    let qs = await db.collection('companies').where('slug', '==', normalizedSlug).get();
 
-    // Fallback for any legacy records that may have been title-cased
+    // 2. Secondary Strategy: fallback for firmanavn (legacy support)
     if (qs.empty && normalizedSlug) {
-      const legacyName = normalizedSlug
-        .split("-")
-        .map((word) => (word.toUpperCase() === "AS" ? "AS" : word.charAt(0).toUpperCase() + word.slice(1)))
-        .join(" ");
-      qs = await db.collection('companies').where('firmanavn', '==', legacyName).get();
+      // Try exact match against firmanavn
+      qs = await db.collection('companies').where('firmanavn', '==', normalizedSlug).get();
+
+      if (qs.empty) {
+        // Legacy title-case conversion
+        const legacyName = normalizedSlug
+          .split("-")
+          .map((word) => (word.toUpperCase() === "AS" ? "AS" : word.charAt(0).toUpperCase() + word.slice(1)))
+          .join(" ");
+        qs = await db.collection('companies').where('firmanavn', '==', legacyName).get();
+      }
     }
 
     let company = null as any;
@@ -39,13 +45,13 @@ export async function GET(
         company = ({ id: docs[0].id, ...docs[0].data() } as any);
       }
     }
-    
+
     const response = NextResponse.json(company);
-    
+
     // Add caching headers for better performance
     response.headers.set('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=1200');
     response.headers.set('CDN-Cache-Control', 'public, s-maxage=600');
-    
+
     return response;
   } catch (error) {
     console.error(error);

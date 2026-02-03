@@ -23,8 +23,23 @@ export default async function getRoomByName(params: IParams) {
 
     console.log(`[getRoomByName] Looking for room: "${roomName}" in company: "${companyName}"`);
 
-    // 1. Fetch all rooms for this company
-    // Using a broader query to ensure we find the room even if capitalization or naming variations exist
+    // 1. Primary lookup Strategy: match by dedicated 'slug' field (robust and consistent)
+    const slugQs = await db.collection('rooms')
+      .where('companyName', '==', companyName)
+      .where('slug', '==', roomName.toLowerCase())
+      .limit(1)
+      .get();
+
+    if (!slugQs.empty) {
+      const matchedRoom = { id: slugQs.docs[0].id, ...slugQs.docs[0].data() } as any;
+      console.log(`[getRoomByName] Found match by slug: ${matchedRoom.name}`);
+      return {
+        ...matchedRoom,
+        createdAt: matchedRoom.createdAt?.toDate ? matchedRoom.createdAt.toDate().toISOString() : matchedRoom.createdAt,
+      };
+    }
+
+    // 2. Secondary Strategy: fetch and match (legacy support)
     const roomsQs = await db.collection('rooms')
       .where('companyName', '==', companyName)
       .get();
@@ -34,13 +49,11 @@ export default async function getRoomByName(params: IParams) {
       return null;
     }
 
-    // 2. Find the match by comparing slugs
-    // This handles special characters (ø, æ, å) much better than exact Firestore queries
     const rooms = roomsQs.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
 
     const matchedRoom = rooms.find(room => {
       const dbRoomName = room.name || "";
-      const dbRoomSlug = roomNameToSlug(dbRoomName);
+      const dbRoomSlug = room.slug || roomNameToSlug(dbRoomName);
 
       // Compare both as absolute slugs
       if (dbRoomSlug === roomName.toLowerCase()) {

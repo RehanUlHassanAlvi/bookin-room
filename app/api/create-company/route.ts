@@ -1,22 +1,21 @@
 import getCurrentUser from "@/app/server/actions/getCurrentUser";
 import { db } from "@/lib/firebaseAdmin";
 import { NextResponse } from "next/server";
-import { sanitizeRoomName, formatRoomNameForStorage } from "@/utils/slugUtils";
+import { companyNameToSlug } from "@/utils/slugUtils";
 import { revalidateTag } from "next/cache";
 
-// Auto-sanitize company name function - converts special chars instead of blocking
+// Auto-sanitize company name function - preserves Norwegian characters (ÆØÅæøå)
 const autoSanitizeCompanyName = (companyName: string): string => {
   if (!companyName) return "";
 
   return companyName
     .trim()
-    // Replace dangerous characters with safe alternatives
-    .replace(/[<>]/g, '') // Remove angle brackets completely
-    .replace(/["']/g, '') // Remove quotes completely
-    .replace(/[&]/g, 'and') // Replace & with 'and'
-    .replace(/[\/\\]/g, ' ') // Replace slashes with spaces
-    .replace(/[^a-zA-Z0-9\s-]/g, ' ') // Replace other special chars with spaces
-    .replace(/\s+/g, ' ') // Multiple spaces to single space
+    .replace(/[<>]/g, '')
+    .replace(/["']/g, '')
+    .replace(/[&]/g, 'and')
+    .replace(/[\/\\]/g, ' ')
+    .replace(/[^a-zA-Z0-9æøåÆØÅ\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 };
 
@@ -25,8 +24,8 @@ const formatCompanyNameForStorage = (companyName: string): string => {
 
   const sanitized = autoSanitizeCompanyName(companyName);
 
+  // Preserve Norwegian characters in title case conversion
   return sanitized
-    .toLowerCase()
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
@@ -65,7 +64,8 @@ export async function POST(request: Request) {
     const companyDetails = {
       id: companyRef.id,
       organisasjonsnummer,
-      firmanavn: sanitizedCompanyName, // Use sanitized name
+      firmanavn: sanitizedCompanyName, // Raw name with Norwegian characters
+      slug: companyNameToSlug(sanitizedCompanyName), // Standardized URL slug
       adresse,
       postnummer,
       poststed,

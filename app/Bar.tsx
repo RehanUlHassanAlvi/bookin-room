@@ -16,9 +16,10 @@ const Bar = ({ currentUser, routes, rooms }: BarProps) => {
   const { data: session, status } = useSession();
   const clientUser = session?.user || currentUser;
 
-  const companyName = routes?.creator?.firmanavn || routes?.company?.firmanavn;
-  const companySlug = companyName ? companyNameToSlug(companyName) : undefined;
-  const adminId = routes?.creator?.userId || routes?.company?.userId || undefined;
+  const companyData = routes?.creator || routes?.company;
+  const companyName = companyData?.firmanavn;
+  const companySlug = companyData?.slug || (companyName ? companyNameToSlug(companyName) : undefined);
+  const adminId = companyData?.userId || undefined;
 
   const logout = async () => {
     await signOut({
