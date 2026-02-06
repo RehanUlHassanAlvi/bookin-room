@@ -280,6 +280,7 @@ const Reservation = ({
     try {
       setIsLoading(true);
       const response = await axios.post("/api/reservation", requestData);
+      router.refresh();
 
       // Return the created reservation id so Scheduler can swap temp id
       const createdId = response?.data?.reservations?.[0]?.id || response?.data?.id;
@@ -324,6 +325,7 @@ const Reservation = ({
         start_date: formattedStartDate,
         end_date: formattedEndDate,
       });
+      router.refresh();
       // Optimistically update local state so Scheduler reflects changes immediately
       setReservationsState((prev) =>
         prev.map((reservation: any) =>
@@ -352,6 +354,7 @@ const Reservation = ({
     }
     try {
       await axios.delete(`/api/reservation/${id}`);
+      router.refresh();
 
       // Update reservations state by removing the deleted reservation
       setReservationsState((prev) =>
