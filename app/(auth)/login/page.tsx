@@ -126,7 +126,7 @@ const Authentification = () => {
               <div className="mb-3">
                 <Input
                   id="email"
-                  label="Email"
+                  label="E-post"
                   type="text"
                   disabled={isLoading}
                   register={register}
@@ -141,7 +141,7 @@ const Authentification = () => {
               <div className="mb-3">
                 <Input
                   id="password"
-                  label="Password"
+                  label="Passord"
                   type="password"
                   disabled={isLoading}
                   register={register}

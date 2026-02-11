@@ -200,7 +200,7 @@ const ReservationsClient: React.FC<ReservationsClientProps> = ({
                     endDate={nextMeeting?.end_date || ""}
                     eventDetails={`Rom: ${nextMeeting?.roomName || "Møterom"}`}
                     location=""
-                    userEmail={currentUser?.email}
+                    userEmail={nextMeeting?.userEmail || currentUser?.email}
                   />
                 </div>
               </div>

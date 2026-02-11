@@ -498,8 +498,25 @@ const Scheduler = ({
       } catch (_) { }
     }
 
+    // Capture scroll state before render
+    let scrollState: any = null;
+    try {
+      if (typeof scheduler.getScrollState === 'function') {
+        scrollState = scheduler.getScrollState();
+      }
+    } catch (_) { }
+
     try {
       scheduler.render();
+
+      // Restore scroll state after render
+      if (scrollState) {
+        try {
+          if (typeof scheduler.scrollTo === 'function') {
+            scheduler.scrollTo(scrollState.x, scrollState.y);
+          }
+        } catch (_) { }
+      }
     } catch (_) { }
 
     previousEventCountRef.current = currentCount;

@@ -92,9 +92,12 @@ export async function POST(request: Request) {
     const companySlug = companyId?.slug || companyNameToSlug(companyName);
     const invitationLink = `${baseUrl}/redirect/${companySlug}/${adminId}/register?token=${uniqueToken}&invite=true&email=${encodeURIComponent(email)}`;
 
-    const subject = `${adminName} Inviterte deg til ${companyName}`;
+    // Use the actual company name for the email if available, otherwise fall back to the provided name (slug)
+    const displayCompanyName = companyId.firmanavn || companyName;
+
+    const subject = `${adminName} Inviterte deg til ${displayCompanyName}`;
     const htmlContent = `
-    <p><a href="${invitationLink}">Klikk her</a> for å bli med!</p>
+    <p><a href="${invitationLink}">Klikk her</a> for å bli med i ${displayCompanyName}!</p>
     
     <p>Vennlig Hilsen,<br/>
     holdav.no</p>
@@ -102,7 +105,7 @@ export async function POST(request: Request) {
 
     // Send invitation email
     try {
-      await sendInvitaionLinkMail(email, "Invitation", subject, htmlContent);
+      await sendInvitaionLinkMail(email, `Invitasjon til ${displayCompanyName}`, subject, htmlContent);
     } catch (emailError) {
       console.error("Failed to send invitation email:", emailError);
       // In development, don't fail the invitation if email fails

@@ -77,7 +77,7 @@ const useRoutes = (currentUser: any) => {
           href: "/infoskjerm",
         },
         {
-          label: "All Users",
+          label: "Alle Brukere",
           icon: MdPeople,
           color: "text-light",
           href: "/all-users",

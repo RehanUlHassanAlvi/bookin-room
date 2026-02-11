@@ -115,6 +115,7 @@ export async function GET() {
           email: data?.email ?? null,
           role: data?.role ?? null,
           companyName,
+          companyId, // Include companyId for filtering
           createdBy,
           userId,
           createdAt,
@@ -123,16 +124,37 @@ export async function GET() {
       })
     );
 
-    // Filter to only show users created/invited by the current admin
-    const filteredResults = results.filter((user) => {
-      // Only show users where adminId matches the current admin's userId
-      // Ensure both values are strings for proper comparison
+    // To properly filter by company, we need the current admin's company ID.
+    // Let's fetch it if we haven't already.
+    let currentAdminCompanyId: string | null = null;
+
+    const adminCompanyQs = await db.collection("companies").where("userId", "==", currentAdminId).limit(1).get();
+    if (!adminCompanyQs.empty) {
+      currentAdminCompanyId = adminCompanyQs.docs[0].id;
+    } else {
+      // Fallback: check if admin is invited to a company
+      const invitedAdminQs = await db.collection("invitedUsers").where("userId", "==", currentAdminId).limit(1).get();
+      if (!invitedAdminQs.empty) {
+        currentAdminCompanyId = invitedAdminQs.docs[0].data().companyId;
+      }
+    }
+
+    const finalResults = results.filter(user => {
       const userAdminId = user.adminId ? String(user.adminId) : null;
       const adminIdToMatch = String(currentAdminId);
-      return userAdminId === adminIdToMatch;
+
+      // 1. Users created by me
+      if (userAdminId === adminIdToMatch) return true;
+
+      // 2. Users in the same company (if I have a company)
+      if (currentAdminCompanyId && user.companyId === currentAdminCompanyId) {
+        return true;
+      }
+
+      return false;
     });
 
-    return NextResponse.json(filteredResults, { status: 200 });
+    return NextResponse.json(finalResults, { status: 200 });
   } catch (error: any) {
     console.error("/api/all-users error:", error);
     return NextResponse.json(

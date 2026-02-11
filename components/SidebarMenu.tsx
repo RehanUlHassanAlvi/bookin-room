@@ -39,11 +39,11 @@ const routes = [
     color: "text-violet-500",
   },
   {
-        label: "All Users",
-        icon: MdPeople,
-        color: "text-light",
-        href: "/all-users",
-      },
+    label: "Alle Brukere",
+    icon: MdPeople,
+    color: "text-light",
+    href: "/all-users",
+  },
   {
     label: "Infoskjerm",
     icon: MdScreenshotMonitor,

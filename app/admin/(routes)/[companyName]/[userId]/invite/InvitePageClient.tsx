@@ -123,7 +123,7 @@ const InvitePageClient = ({
         <div className="mb-3">
           <Input
             id="email"
-            label="Epostadresse"
+            label="E-postadresse"
             type="text"
             disabled={isLoading}
             register={register}

@@ -189,7 +189,7 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
               endDate={reservation?.end_date || ""}
               eventDetails={`Rom: ${reservation?.room?.companyName || "Møterom"}`}
               location=""
-              userEmail={currentUser?.email}
+              userEmail={reservation?.userEmail || currentUser?.email}
             />
           </div>
 

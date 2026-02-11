@@ -269,7 +269,7 @@ const SignupForm = () => {
               <div className="mb-3">
                 <Input
                   id="firstname"
-                  label="First name"
+                  label="Fornavn"
                   type="text"
                   disabled={isLoading || isValidatingInvite || (inviteData?.valid === false)}
                   register={register}
@@ -285,7 +285,7 @@ const SignupForm = () => {
               <div className="mb-3">
                 <Input
                   id="lastname"
-                  label="Last name"
+                  label="Etternavn"
                   type="text"
                   disabled={isLoading || isValidatingInvite || (inviteData?.valid === false)}
                   register={register}
@@ -301,7 +301,7 @@ const SignupForm = () => {
               <div className="mb-3">
                 <Input
                   id="email"
-                  label="Email"
+                  label="E-post"
                   type="text"
                   disabled={isLoading || isValidatingInvite || (inviteData?.valid === false) || (inviteData?.valid === true)}
                   register={register}
@@ -315,7 +315,7 @@ const SignupForm = () => {
               <div className="mb-3">
                 <Input
                   id="password"
-                  label="Password"
+                  label="Passord"
                   type="password"
                   disabled={isLoading || isValidatingInvite || (inviteData?.valid === false)}
                   register={register}
