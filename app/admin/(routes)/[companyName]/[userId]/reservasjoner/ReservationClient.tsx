@@ -303,24 +303,56 @@ const ReservationsClient: React.FC<ReservationsClientProps> = ({
     );
   }
 
+  // Split reservations into upcoming and past
+  const now = new Date();
+  const upcomingReservations = (list || []).filter((r: any) => new Date(r.end_date) >= now);
+  const pastReservations = (list || []).filter((r: any) => new Date(r.end_date) < now);
+
+  // Sort upcoming by start_date ascending
+  upcomingReservations.sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
+  // Sort past by start_date descending (most recent first)
+  pastReservations.sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime());
+
   return (
     <Container>
-      {/*<Navbar Logo navMenu currentUser={currentUser} />*/}
       <Heading
         title="Reservasjoner"
         subTitle={currentUser?.role === 'admin' ? 'Her kan du se alle reservasjoner' : 'Her kan du se dine reservasjoner'}
       />
-      <div className="grid grid-cols-1 gap-8 py-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-        {list.map((reservation: any) => (
-          <ReservationCard
-            key={reservation.id}
-            reservation={reservation}
-            currentUser={currentUser}
-            isCancelling={isCancelling}
-            setIsCancelling={setIsCancelling}
-          />
-        ))}
-      </div>
+
+      {upcomingReservations.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-xl font-bold mb-4">Kommende reservasjoner</h2>
+          <div className="grid grid-cols-1 gap-8 py-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+            {upcomingReservations.map((reservation: any) => (
+              <ReservationCard
+                key={reservation.id}
+                reservation={reservation}
+                currentUser={currentUser}
+                isCancelling={isCancelling}
+                setIsCancelling={setIsCancelling}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {pastReservations.length > 0 && (
+        <div className="mt-12 opacity-80">
+          <h2 className="text-xl font-bold mb-4 text-gray-500">Tidligere reservasjoner</h2>
+          <div className="grid grid-cols-1 gap-8 py-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+            {pastReservations.map((reservation: any) => (
+              <ReservationCard
+                key={reservation.id}
+                reservation={reservation}
+                currentUser={currentUser}
+                isCancelling={isCancelling}
+                setIsCancelling={setIsCancelling}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </Container>
   );
 };

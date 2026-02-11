@@ -45,20 +45,25 @@ const getCachedRooms = unstable_cache(
     }
 
     // 2. Fetch rooms for this company
-    // Try by companyId first (preferred), fallback to canonical companyName
-    let roomsQs;
-    if (companyId) {
-      roomsQs = await db.collection('rooms').where('companyId', '==', companyId).get();
-    }
+    // Fetch by companyId and companyName in parallel to ensure we get all rooms
+    // (handles inconsistent indexing where some rooms might only have one of them)
+    const [roomsByIdQs, roomsByNameQs] = await Promise.all([
+      companyId ? db.collection('rooms').where('companyId', '==', companyId).get() : Promise.resolve({ docs: [] }),
+      canonicalCompanyName ? db.collection('rooms').where('companyName', '==', canonicalCompanyName).get() : Promise.resolve({ docs: [] })
+    ]);
 
-    if (!roomsQs || roomsQs.empty) {
-      roomsQs = await db.collection('rooms').where('companyName', '==', canonicalCompanyName).get();
-    }
+    // Merge and deduplicate by ID
+    const mergedDocs = [...(roomsByIdQs?.docs || []), ...(roomsByNameQs?.docs || [])];
+    const uniqueRoomsMap = new Map();
 
-    const rooms = (roomsQs?.docs || []).map((doc) => ({ id: doc.id, ...doc.data() })) as any[];
+    mergedDocs.forEach(doc => {
+      uniqueRoomsMap.set(doc.id, { id: doc.id, ...doc.data() });
+    });
+
+    const rooms = Array.from(uniqueRoomsMap.values());
 
     // In-memory sort by createdAt descending
-    rooms.sort((a, b) => {
+    rooms.sort((a: any, b: any) => {
       const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
       const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
       return timeB - timeA;

@@ -147,12 +147,19 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
     return null;
   }
 
+  const isPast = new Date(reservation?.end_date) < new Date();
+
   return (
-    <div className="w-full col-span-1 py-3">
-      <div className="flex flex-col w-full h-80 p-6 border rounded-md border-primary">
+    <div className={`w-full col-span-1 py-3 ${isPast ? 'grayscale-[0.5] opacity-90' : ''}`}>
+      <div className={`flex flex-col w-full h-80 p-6 border rounded-md ${isPast ? 'border-gray-300 bg-gray-50' : 'border-primary'}`}>
 
         {/* ===== TOP CONTENT (TEXT) ===== */}
-        <div className="flex-1 min-h-0">
+        <div className="relative flex-1 min-h-0">
+          {isPast && (
+            <div className="absolute top-0 right-0 px-2 py-1 text-[10px] font-bold text-white uppercase bg-gray-400 rounded">
+              Utløpt
+            </div>
+          )}
           <div className="text-[13px] leading-snug break-words overflow-hidden line-clamp-3">
             {reservation?.text}
           </div>
@@ -182,22 +189,24 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
 
         {/* ===== FOOTER (ALWAYS BOTTOM) ===== */}
         <div className="mt-4 flex flex-col">
-          <div className="mb-2">
-            <AddToGoogleCalendarButton
-              eventTitle={reservation?.text || "Hold-Av Reservasjon"}
-              startDate={reservation?.start_date || ""}
-              endDate={reservation?.end_date || ""}
-              eventDetails={`Rom: ${reservation?.room?.companyName || "Møterom"}`}
-              location=""
-              userEmail={reservation?.userEmail || currentUser?.email}
-            />
-          </div>
+          {!isPast && (
+            <div className="mb-2">
+              <AddToGoogleCalendarButton
+                eventTitle={reservation?.text || "Hold-Av Reservasjon"}
+                startDate={reservation?.start_date || ""}
+                endDate={reservation?.end_date || ""}
+                eventDetails={`Rom: ${reservation?.room?.companyName || "Møterom"}`}
+                location=""
+                userEmail={reservation?.userEmail || currentUser?.email}
+              />
+            </div>
+          )}
 
           <Button
             small
-            label={isDeleted ? "Kansellert" : "Kanseller Reservasjon"}
-            onClick={() => onCancelReservation(reservation?.id)}
-            disabled={isDeleted || isLoading || deleteReservation.isPending || isCancelling}
+            label={isDeleted ? "Kansellert" : isPast ? "Fullført" : "Kanseller Reservasjon"}
+            onClick={() => !isPast && onCancelReservation(reservation?.id)}
+            disabled={isDeleted || isLoading || deleteReservation.isPending || isCancelling || isPast}
             loading={isLoading}
             loadingLabel="Kansellerer..."
           />
