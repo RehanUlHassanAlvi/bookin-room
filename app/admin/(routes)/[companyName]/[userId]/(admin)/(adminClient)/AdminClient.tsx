@@ -35,6 +35,11 @@ const AdminClient = ({
   const params = useParams<{ userId: string; item: string }>();
   const userId = params ? params.userId : null;
   const router = useRouter();
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   /* 
    * SMART RELOAD FAILSAFE: Detect soft-nav vs hard-reload
@@ -55,7 +60,7 @@ const AdminClient = ({
   }, [companyName]);
 
   const { data: authorizedUsers } = useQuery({
-    queryKey: ["authorizedUsers"],
+    queryKey: ["authorizedUsers", companyName],
     queryFn: async () => {
       const res = await axios.get(`/api/authorized-users/${companyName}`);
       return res.data;
@@ -76,7 +81,7 @@ const AdminClient = ({
   });
 
   const { data: reservationByCompanyName } = useQuery({
-    queryKey: ["reservationByCompany"],
+    queryKey: ["reservationByCompany", companyName],
     queryFn: async () => {
       const res = await axios.get(`/api/reservation/company/${companyName}`);
       return res.data;
@@ -85,7 +90,7 @@ const AdminClient = ({
     refetchOnMount: true,
   });
   const { data: company, isLoading: companyLoading } = useQuery({
-    queryKey: ["company"],
+    queryKey: ["company", companyName],
     queryFn: async () => {
       const res = await axios.get(`/api/company/${companyName}`);
       return res.data;
@@ -121,6 +126,14 @@ const AdminClient = ({
       setIsAuthorized(false);
     }
   }, [authorizedUsers, currentUser]);
+
+  if (!hasMounted) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   if (!isAuthorized) {
     return (

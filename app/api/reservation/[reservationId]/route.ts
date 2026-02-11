@@ -44,6 +44,33 @@ export async function DELETE(
   await db.collection('reservations').doc(reservationId).delete();
   const reservation = { count: 1 } as any;
 
+  // Send cancellation email if user email exists
+  if (existing?.userEmail) {
+    try {
+      const { sendCancellationMail } = await import("@/lib/sendMail");
+
+      // Format time for email
+      const rawStart = existing.start_date;
+      const start = rawStart?.toDate ? rawStart.toDate() : new Date(rawStart);
+      const timeStr = start.toLocaleString('no-NO', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      await sendCancellationMail(
+        existing.userEmail,
+        existing.text || "Reservasjon",
+        timeStr,
+        existing.companyName || "vår tjeneste"
+      );
+    } catch (e) {
+      console.error("Failed to send cancellation email:", e);
+    }
+  }
+
   // Invalidate API caches so subsequent GETs return fresh data immediately
   try {
     if (existing?.userId) {
@@ -72,7 +99,7 @@ export async function PUT(request: Request, { params }: { params: Promise<IParam
   try {
     const currentUser = await getCurrentUser();
     const body = await request.json();
-    
+
     if (!currentUser || !currentUser.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -82,20 +109,20 @@ export async function PUT(request: Request, { params }: { params: Promise<IParam
     if (!start_date || !end_date || text === undefined || text === null) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
-    
+
     const { reservationId } = await params;
-    
+
     if (!reservationId || typeof reservationId !== "string") {
       return NextResponse.json({ error: "Invalid reservation ID" }, { status: 400 });
     }
-    
+
     // CRITICAL: Check ownership before allowing update
     const existingReservationSnap = await db.collection('reservations').doc(reservationId).get();
     const existingReservation = existingReservationSnap.exists ? ({ id: existingReservationSnap.id, ...existingReservationSnap.data() } as any) : null;
 
     if (!existingReservation) {
       return NextResponse.json(
-        { error: "Reservation not found" }, 
+        { error: "Reservation not found" },
         { status: 404 }
       );
     }
@@ -103,7 +130,7 @@ export async function PUT(request: Request, { params }: { params: Promise<IParam
     // SECURITY: Enforce ownership - users can only update their own reservations
     if (existingReservation.userId !== currentUser.id) {
       return NextResponse.json(
-        { error: "Unauthorized: You can only update your own reservations" }, 
+        { error: "Unauthorized: You can only update your own reservations" },
         { status: 403 }
       );
     }
@@ -131,11 +158,11 @@ export async function PUT(request: Request, { params }: { params: Promise<IParam
     const hasConflict = conflictingQs.docs.some((doc) => {
       // Skip the reservation we're updating
       if (doc.id === reservationId) return false;
-      
+
       const data = doc.data() as any;
       const existingStart = data?.start_date?.toDate ? data.start_date.toDate() : new Date(data?.start_date);
       const existingEnd = data?.end_date?.toDate ? data.end_date.toDate() : new Date(data?.end_date);
-      
+
       // Check for overlap: two time ranges overlap if one starts before the other ends
       return existingStart < newEnd && existingEnd > newStart;
     });
@@ -159,7 +186,7 @@ export async function PUT(request: Request, { params }: { params: Promise<IParam
     try {
       const { generateCacheKey, CACHE_KEYS } = await import("@/lib/cache");
       const cache = (await import("@/lib/cache")).cache;
-      
+
       if (existingReservation?.userId) {
         const userKey = generateCacheKey(CACHE_KEYS.USER_RESERVATIONS, existingReservation.userId);
         cache.delete(userKey);
@@ -177,15 +204,15 @@ export async function PUT(request: Request, { params }: { params: Promise<IParam
     }
 
     // Return success response
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       message: "Reservation updated successfully",
       data: reservation
     });
   } catch (err) {
     console.log("Reservation update error:", err);
     return NextResponse.json(
-      { error: "Failed to update reservation" }, 
+      { error: "Failed to update reservation" },
       { status: 500 }
     );
   }

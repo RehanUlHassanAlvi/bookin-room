@@ -9,6 +9,7 @@ import Image from "next/image";
 import { logo } from "../../../assets";
 import { FaGoogle } from "react-icons/fa";
 import { signIn } from "next-auth/react";
+import axios from "axios";
 import Input from "@/components/Inputs/Input";
 import Button from "@/components/Button";
 // Force refresh for Vercel deployment
@@ -103,6 +104,82 @@ const Authentification = () => {
       }, 1000);
     }
   };
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [isSendingReset, setIsSendingReset] = useState(false);
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) {
+      toast.error("Vennligst skriv inn din e-post");
+      return;
+    }
+
+    try {
+      setIsSendingReset(true);
+      const res = await axios.post("/api/auth/forgot-password", { email: forgotEmail });
+      toast.success(res.data.message || "Tilbakestillingslenke sendt!");
+      setIsForgotPassword(false);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Noe gikk galt");
+    } finally {
+      setIsSendingReset(false);
+    }
+  };
+
+  if (isForgotPassword) {
+    return (
+      <div className="relative w-full mx-auto bg-gradient-to-b from-[#F5F5F5] to-[#fff] min-h-[100vh] ">
+        <div>
+          <div className="h-auto bg-secondary w-full p-8 mb-[30px]">
+            <div className="flex flex-col items-center justify-center w-full">
+              <Link href="/" className="flex w-full mx-auto">
+                <Image src={logo} width={200} height={100} alt="logo" />
+              </Link>
+            </div>
+          </div>
+        </div>
+        <div className="w-full mx-auto max-w-[500px] px-10 rounded-[7px]">
+          <div className="flex flex-col justify-center w-full">
+            <div className="pt-10 mx-auto text-center max-w-[400px] border-b border-black mb-10">
+              <h5 className="text-[2rem] uppercase italic font-[700] text-black pb-8">
+                Tilbakestill Passord
+              </h5>
+            </div>
+            <p className="mb-6 text-center text-gray-600">
+              Skriv inn din e-postadresse, så sender vi deg en lenke for å tilbakestille passordet ditt.
+            </p>
+            <form onSubmit={handleForgotPassword}>
+              <div className="mb-6">
+                <label className="block mb-2 text-sm font-semibold text-gray-700">E-post</label>
+                <input
+                  type="email"
+                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="din@epost.no"
+                  disabled={isSendingReset}
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <Button label={isSendingReset ? "Sender..." : "Send tilbakestillingslenke"} type disabled={isSendingReset} />
+              </div>
+              <div className="text-center">
+                <span
+                  onClick={() => setIsForgotPassword(false)}
+                  className="text-sm font-semibold cursor-pointer text-primary hover:underline"
+                >
+                  Tilbake til innlogging
+                </span>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative w-full mx-auto bg-gradient-to-b from-[#F5F5F5] to-[#fff] min-h-[100vh] ">
       <div>
@@ -138,7 +215,7 @@ const Authentification = () => {
                 </span>
               </div>
 
-              <div className="mb-3">
+              <div className="mb-1">
                 <Input
                   id="password"
                   label="Passord"
@@ -152,6 +229,16 @@ const Authentification = () => {
                   {errors?.password as ReactNode}
                 </span>
               </div>
+
+              <div className="flex justify-end mb-4">
+                <span
+                  onClick={() => setIsForgotPassword(true)}
+                  className="text-sm font-semibold cursor-pointer text-primary hover:underline"
+                >
+                  Glemt passord?
+                </span>
+              </div>
+
               <div className="mb-3">
                 {message && <span className="text-rose-700">{message}</span>}
               </div>

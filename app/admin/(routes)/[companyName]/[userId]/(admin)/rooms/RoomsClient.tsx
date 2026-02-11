@@ -13,6 +13,10 @@ import { useQuery } from "@tanstack/react-query";
 import EmptyState from "@/components/EmptyState";
 import ContentLoader from "@/components/ContentLoader";
 import { formatRoomNameForDisplay, roomNameToSlug, companyNameToSlug } from "@/utils/slugUtils";
+import { AiOutlineEdit, AiOutlineDelete } from "react-icons/ai";
+import { toast } from "react-hot-toast";
+import { useQueryClient } from "@tanstack/react-query";
+
 
 interface RoomsClientProps {
   currentUser?: any | null;
@@ -32,6 +36,13 @@ const RoomsClient = ({
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+  const queryClient = useQueryClient();
+
+  const [editingRoom, setEditingRoom] = useState<any | null>(null);
+  const [newRoomName, setNewRoomName] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+
 
   /* 
    * SMART RELOAD FAILSAFE: Detect soft-nav vs hard-reload
@@ -94,6 +105,52 @@ const RoomsClient = ({
     }
     setAuthChecked(true);
   }, [authorizedUsers, currentUser, companyName]);
+
+  const handleEditClick = (e: React.MouseEvent, room: any) => {
+    e.stopPropagation();
+    setEditingRoom(room);
+    setNewRoomName(room.name || "");
+  };
+
+  const handleUpdate = async () => {
+    if (!editingRoom?.id || !newRoomName.trim()) return;
+    try {
+      setIsUpdating(true);
+      await axios.patch(`/api/rooms/${editingRoom.id}`, { name: newRoomName });
+      toast.success("Møterom oppdatert!");
+      setEditingRoom(null);
+      queryClient.invalidateQueries({ queryKey: ["roomsForCompany", companyName] });
+      queryClient.invalidateQueries({ queryKey: ["reservationByCompany", companyName] });
+      router.refresh();
+    } catch (error) {
+      toast.error("Kunne ikke oppdatere møterom");
+      console.error(error);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, roomId: string) => {
+    e.stopPropagation();
+    if (!confirm("Er du sikker på at du vil slette dette møterommet? Alle reservasjoner for dette rommet vil bli slettet, og brukere vil bli varslet.")) {
+      return;
+    }
+
+    try {
+      setIsDeleting(roomId);
+      await axios.delete(`/api/rooms/${roomId}`);
+      toast.success("Møterom slettet!");
+      queryClient.invalidateQueries({ queryKey: ["roomsForCompany", companyName] });
+      queryClient.invalidateQueries({ queryKey: ["reservationByCompany", companyName] });
+      router.refresh();
+    } catch (error) {
+      toast.error("Kunne ikke slette møterom");
+      console.error(error);
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
 
   if (!authChecked) {
     return <ContentLoader message=" møterom…" />;
@@ -163,11 +220,31 @@ const RoomsClient = ({
                 <div
                   key={room?.id}
                   onClick={() => router.push(targetPath)}
-                  className="mb-2 cursor-pointer transition hover:opacity-90 relative"
+                  className="mb-2 cursor-pointer transition hover:opacity-90 relative group"
                 >
-                  <span className="absolute inset-0 z-[1]" />
-                  <div className="mb-3">
+                  <span className="absolute inset-0 z-[1] pointer-events-none" />
+                  <div className="mb-3 relative z-[2]">
                     <Card outline label={formatRoomNameForDisplay(room?.name)} flex icon={LuDoorOpen} />
+
+                    {currentUser?.role === "admin" && (
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center space-x-2 z-[2]">
+                        <button
+                          onClick={(e) => handleEditClick(e, room)}
+                          className="p-2 text-gray-500 hover:text-blue-600 transition"
+                          title="Rediger"
+                        >
+                          <AiOutlineEdit size={20} />
+                        </button>
+                        <button
+                          disabled={isDeleting === room.id}
+                          onClick={(e) => handleDelete(e, room.id)}
+                          className="p-2 text-gray-500 hover:text-red-600 transition disabled:opacity-50"
+                          title="Slett"
+                        >
+                          <AiOutlineDelete size={20} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -210,7 +287,44 @@ const RoomsClient = ({
           </div>
         )}
       </Width>
+
+      {/* Edit Room Modal */}
+      {editingRoom && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[50]">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-bold mb-4">Rediger Møterom</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Navn på møterom</label>
+                <input
+                  type="text"
+                  value={newRoomName}
+                  onChange={(e) => setNewRoomName(e.target.value)}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                  placeholder="Eks: Møterom A"
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                onClick={() => setEditingRoom(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              >
+                Avbryt
+              </button>
+              <button
+                onClick={handleUpdate}
+                disabled={isUpdating || !newRoomName.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                {isUpdating ? "Oppdaterer..." : "Lagre endringer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+
   );
 };
 

@@ -49,6 +49,11 @@ const ReservationsClient: React.FC<ReservationsClientProps> = ({
   const [list, setList] = useState<any[]>(Array.isArray(reservationsInit) ? reservationsInit : []);
   const [isCancelling, setIsCancelling] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<string>('all'); // For InfoScreen room filter
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   useEffect(() => {
     if (Array.isArray(reservations)) {
@@ -58,6 +63,7 @@ const ReservationsClient: React.FC<ReservationsClientProps> = ({
 
   // Kiosk-style Info Screen Layout for today's reservations
   if (isInfoScreen) {
+    if (!hasMounted) return <div className="p-6"><ContentLoader /></div>;
     const loading = isLoading || isFetching;
     if (loading) {
       return (
@@ -281,7 +287,7 @@ const ReservationsClient: React.FC<ReservationsClientProps> = ({
 
   // Original layout for regular reservations page
   // While fetching, only show loader if we have no data at all (prevent flicker on background refetch)
-  const isActuallyLoading = isLoading && (!reservations || (Array.isArray(reservations) && reservations.length === 0));
+  const isActuallyLoading = !hasMounted || (isLoading && (!reservations || (Array.isArray(reservations) && reservations.length === 0)));
 
   if (!isInfoScreen && isActuallyLoading) {
     return (

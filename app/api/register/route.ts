@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import { db } from "@/lib/firebaseAdmin";
 import { revalidateTag } from "next/cache";
 import { companyNameToSlug } from "@/utils/slugUtils";
+import { sendWelcomeMail } from "@/lib/sendMail";
 
 export async function POST(request: Request) {
   try {
@@ -130,6 +131,18 @@ export async function POST(request: Request) {
     const userRef = db.collection('users').doc();
     const user = { id: userRef.id, _id: userRef.id, ...userData } as any;
     await userRef.set({ ...userData, _id: userRef.id });
+
+    // Send welcome email
+    try {
+      await sendWelcomeMail(
+        email,
+        `${firstname} ${lastname}`,
+        role as 'admin' || 'user',
+        invitation?.companyName
+      );
+    } catch (e) {
+      console.error("Failed to send welcome email:", e);
+    }
 
     // Invalidate user cache to ensure session/getCurrentUser is fresh
     try {
